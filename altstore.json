@@ -21,10 +21,19 @@
       "screenshots": [],
       "versions": [
         {
+          "version": "1.2.1",
+          "buildVersion": "4",
+          "date": "2026-07-15",
+          "localizedDescription": "Reliability: your ride now survives a background app termination. If iOS closes Apex to free memory while you're navigating in Google Maps or playing Spotify, the in-progress ride is saved to disk fix-by-fix and automatically restored to your garage on next launch \u2014 nothing lost.",
+          "downloadURL": "https://github.com/clambake8233/apex/releases/download/v1.2.1/Apex.ipa",
+          "size": 1871155,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.2.0",
           "buildVersion": "3",
           "date": "2026-07-15",
-          "localizedDescription": "Follow-me recording: your route stays in frame and follows you (route-framed by default; heading-up and north-up available via the on-screen toggle). The garage now celebrates Corners carved instead of top speed. New Ride Detail screen \u2014 tap any ride for the full route on a dark map, a rolling elevation profile, and every stat (top speed lives here).",
+          "localizedDescription": "Follow-me recording, Corners on the garage list, and the new Ride Detail screen.",
           "downloadURL": "https://github.com/clambake8233/apex/releases/download/v1.2.0/Apex.ipa",
           "size": 1758907,
           "minOSVersion": "17.0"
@@ -33,7 +42,7 @@
           "version": "1.1.0",
           "buildVersion": "2",
           "date": "2026-07-15",
-          "localizedDescription": "Live Recording \u2014 record a ride on a real dark map with a live distance / time / speed HUD.",
+          "localizedDescription": "Live Recording on a real dark map with a live distance / time / speed HUD.",
           "downloadURL": "https://github.com/clambake8233/apex/releases/download/v1.1.0/Apex.ipa",
           "size": 1337107,
           "minOSVersion": "17.0"
@@ -42,7 +51,7 @@
           "version": "1.0.0",
           "buildVersion": "1",
           "date": "2026-07-15",
-          "localizedDescription": "First AltStore release: Ride Library + demo mode (tap Try Demo Mode to explore).",
+          "localizedDescription": "First AltStore release: Ride Library + demo mode.",
           "downloadURL": "https://github.com/clambake8233/apex/releases/download/v1.0.0/Apex.ipa",
           "size": 866022,
           "minOSVersion": "17.0"
