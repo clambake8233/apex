@@ -56,7 +56,9 @@ jobs:
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       # Boot the sim now (NOT earlier — concurrent boot starves brew). First
-      # simctl call absorbs CoreSimulator cold-start here.
+      # simctl call absorbs CoreSimulator cold-start here. We launch the app
+      # twice — once per start state (empty invitation, demo garage) — and
+      # screenshot each, so both states are reviewable from one run.
       - name: Boot simulator, install, launch, screenshot
         run: |
           set -euxo pipefail
@@ -71,19 +73,26 @@ jobs:
           xcrun simctl install "$UDID" "$APP_PATH"
           t2=$(date +%s); echo "[[TIMER]] install $((t2-t1))s"
 
-          xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          t3=$(date +%s); echo "[[TIMER]] launch $((t3-t2))s"
-
-          # Poll for a rendered frame instead of a fixed sleep.
+          # Render each start-state. simctl passes child env via SIMCTL_CHILD_*.
+          # Demo garage:
+          SIMCTL_CHILD_APEX_START="demo"  xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
           for i in 1 2 3 4 5 6; do
-            xcrun simctl io "$UDID" screenshot screenshots/ride-library.png || true
-            sz=$(stat -f%z screenshots/ride-library.png 2>/dev/null || echo 0)
-            echo "screenshot attempt $i: ${sz} bytes"
-            [ "$sz" -gt 100000 ] && break
-            sleep 2
+            xcrun simctl io "$UDID" screenshot screenshots/ride-library-demo.png || true
+            sz=$(stat -f%z screenshots/ride-library-demo.png 2>/dev/null || echo 0)
+            echo "  demo attempt $i: ${sz} bytes"; [ "$sz" -gt 100000 ] && break; sleep 2
           done
-          t4=$(date +%s); echo "[[TIMER]] screenshot_poll $((t4-t3))s"
-          echo "[[TIMER]] sim_step_total $((t4-t0))s"
+
+          # Empty invitation (real first-run):
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+          SIMCTL_CHILD_APEX_START="empty" xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+          for i in 1 2 3 4 5 6; do
+            xcrun simctl io "$UDID" screenshot screenshots/ride-library-empty.png || true
+            sz=$(stat -f%z screenshots/ride-library-empty.png 2>/dev/null || echo 0)
+            echo "  empty attempt $i: ${sz} bytes"; [ "$sz" -gt 100000 ] && break; sleep 2
+          done
+
+          t3=$(date +%s); echo "[[TIMER]] launch_and_shoot $((t3-t2))s"
+          echo "[[TIMER]] sim_step_total $((t3-t0))s"
           ls -la screenshots
 
       - name: Upload screenshots

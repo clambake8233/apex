@@ -2,60 +2,95 @@ import SwiftUI
 
 // MARK: - RideLibraryView
 //
-// The hero screen: a rider's garage of rides (Principle P2).
-// Layout:
-//   • Large title "Rides" + a hero summary strip (lifetime distance = the one
-//     big accent number; ride count + lifetime time as supporting stats).
-//   • A scrolling collection of RideCardView keepsakes (staggered entrance).
-//   • A bottom-anchored primary "Record" action (thumb reach, P3), floating on
-//     a gradient scrim so it never fights the content.
+// The hero screen: a rider's garage of rides (Principle P2). Now store-driven so
+// it reacts to mode (empty / demo / live):
+//   • empty → the designed EmptyLibraryView invitation (with Try Demo Mode)
+//   • demo/live → the hero summary + ride keepsake cards
 //
-// Everything renders from SampleData — no live dependencies (ARCHITECTURE A3).
+// In demo mode a "DEMO" pill sits in the header with an Exit affordance, so the
+// state is always honest and reversible.
+//
+// Everything renders from the store; sample/demo data has zero live deps
+// (ARCHITECTURE A3).
 
 public struct RideLibraryView: View {
-    public let rides: [Ride]
-    public init(rides: [Ride] = SampleData.rides) { self.rides = rides }
+    @State private var store: RideStore
+
+    public init(store: RideStore = RideStore(mode: .demo)) {
+        _store = State(initialValue: store)
+    }
 
     public var body: some View {
         ZStack(alignment: .bottom) {
             Theme.canvas.ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Space.s6) {
-                    header
-                    ForEach(Array(rides.enumerated()), id: \.element.id) { _, ride in
-                        RideCardView(ride: ride)
-                    }
-                    // Bottom breathing room so the last card clears the button.
-                    Color.clear.frame(height: 96)
-                }
-                .padding(.horizontal, Theme.Space.screenInset)
-                .padding(.top, Theme.Space.s6)
+            if store.hasRides {
+                content
+                recordButton
+            } else {
+                EmptyLibraryView(
+                    onRecord: { /* recording screen — next feature */ },
+                    onTryDemo: { withAnimation(Theme.Motion.smooth) { store.enterDemo() } }
+                )
             }
+        }
+    }
 
-            recordButton
+    // MARK: Ride list
+
+    private var content: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Space.s6) {
+                header
+                ForEach(store.rides, id: \.id) { ride in
+                    RideCardView(ride: ride)
+                }
+                Color.clear.frame(height: 96)
+            }
+            .padding(.horizontal, Theme.Space.screenInset)
+            .padding(.top, Theme.Space.s6)
         }
     }
 
     // MARK: Hero header
 
     private var header: some View {
+        let rides = store.rides
         let totalDist = rides.reduce(0.0) { $0 + RideMetrics.distanceMeters($1.samples) }
         let totalTime = rides.reduce(0.0) { $0 + RideMetrics.elapsedDuration($1) }
 
         return VStack(alignment: .leading, spacing: Theme.Space.s5) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center) {
                 Text("Rides")
                     .font(Theme.Font.titleL)
                     .tracking(Theme.Tracking.titleL)
                     .foregroundStyle(Theme.Palette.inkPrimary)
+
+                if store.isDemo {
+                    Button {
+                        withAnimation(Theme.Motion.smooth) { store.exitDemo() }
+                    } label: {
+                        HStack(spacing: Theme.Space.s1) {
+                            Image(systemName: "sparkles").font(.system(size: 10, weight: .bold))
+                            Text("DEMO")
+                            Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                        }
+                        .font(Theme.Font.label)
+                        .tracking(Theme.Tracking.label)
+                        .foregroundStyle(Theme.Palette.accent)
+                        .padding(.horizontal, Theme.Space.s3)
+                        .padding(.vertical, Theme.Space.s1 + 2)
+                        .background(Capsule().fill(Theme.Palette.accent.opacity(0.14)))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 Spacer()
                 Image(systemName: "line.3.horizontal.decrease.circle")
                     .font(.system(size: 22, weight: .regular))
                     .foregroundStyle(Theme.Palette.inkTertiary)
             }
 
-            // Hero summary: the ONE big accent number = lifetime distance.
             HStack(alignment: .bottom, spacing: Theme.Space.s6) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -87,7 +122,6 @@ public struct RideLibraryView: View {
 
     private var recordButton: some View {
         VStack(spacing: 0) {
-            // Scrim so the button floats readably over scrolling cards.
             LinearGradient(
                 colors: [Theme.Palette.canvasBottom.opacity(0), Theme.Palette.canvasBottom],
                 startPoint: .top, endPoint: .bottom
