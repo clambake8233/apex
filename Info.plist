@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Location: Apex records the rider's route while riding. -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Apex records your route while you ride, so you can see it afterward.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Apex keeps recording your route even with the screen off, so a long ride is captured start to finish.</string>
+
+    <!-- Background location so recording continues with the screen off / app
+         backgrounded during a ride. Works with free developer accounts (this is
+         an Info.plist mode, not a paid entitlement). -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
+</dict>
+</plist>

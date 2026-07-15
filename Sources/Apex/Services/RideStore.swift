@@ -60,6 +60,19 @@ public final class RideStore {
         }
     }
 
+    /// Add a freshly-recorded ride. In demo mode it's prepended to the demo list
+    /// (so a test recording appears immediately); in real use it joins the live
+    /// set and will be persisted (SwiftData wiring later). Newest first.
+    public func add(_ ride: Ride) {
+        if mode == .demo {
+            rides.insert(ride, at: 0)
+        } else {
+            liveRides.insert(ride, at: 0)
+            mode = .live
+            rides = liveRides
+        }
+    }
+
     private static func rides(for mode: Mode, live: [Ride]) -> [Ride] {
         switch mode {
         case .empty: return []

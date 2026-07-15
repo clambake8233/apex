@@ -91,6 +91,16 @@ jobs:
             echo "  empty attempt $i: ${sz} bytes"; [ "$sz" -gt 100000 ] && break; sleep 2
           done
 
+          # Live recording (simulated provider primed with a partial track):
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+          SIMCTL_CHILD_APEX_START="recording" xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+          for i in 1 2 3 4 5 6; do
+            sleep 2
+            xcrun simctl io "$UDID" screenshot screenshots/recording.png || true
+            sz=$(stat -f%z screenshots/recording.png 2>/dev/null || echo 0)
+            echo "  recording attempt $i: ${sz} bytes"; [ "$sz" -gt 100000 ] && break
+          done
+
           t3=$(date +%s); echo "[[TIMER]] launch_and_shoot $((t3-t2))s"
           echo "[[TIMER]] sim_step_total $((t3-t0))s"
           ls -la screenshots

@@ -15,9 +15,11 @@ import SwiftUI
 
 public struct RideLibraryView: View {
     @State private var store: RideStore
+    private var onRecord: () -> Void
 
-    public init(store: RideStore = RideStore(mode: .demo)) {
+    public init(store: RideStore = RideStore(mode: .demo), onRecord: @escaping () -> Void = {}) {
         _store = State(initialValue: store)
+        self.onRecord = onRecord
     }
 
     public var body: some View {
@@ -29,7 +31,7 @@ public struct RideLibraryView: View {
                 recordButton
             } else {
                 EmptyLibraryView(
-                    onRecord: { /* recording screen — next feature */ },
+                    onRecord: onRecord,
                     onTryDemo: { withAnimation(Theme.Motion.smooth) { store.enterDemo() } }
                 )
             }
@@ -154,6 +156,7 @@ public struct RideLibraryView: View {
             .padding(.horizontal, Theme.Space.screenInset)
             .padding(.bottom, Theme.Space.s6)
             .background(Theme.Palette.canvasBottom)
+            .onTapGesture(perform: onRecord)
         }
     }
 }
