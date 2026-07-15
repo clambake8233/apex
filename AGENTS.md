@@ -52,7 +52,11 @@ back as beautiful keepsakes. The UI bar is **Transit-level** — see the design 
 xtool dev build --triple arm64-apple-ios-simulator
 
 # Build an installable .ipa (device / free Apple ID)
-xtool build            # then: xtool devices ; xtool install <ipa>
+xtool dev build --ipa --configuration release   # default triple arm64-apple-ios
+# -> xtool/Apex.ipa (unsigned; Payload/Apex.app/). Then: xtool devices ; xtool install <ipa>
+# NOTE: it's `xtool dev build --ipa`, NOT `xtool build` (that's not a subcommand).
+# To ship an AltStore UPDATE you MUST bump CFBundleShortVersionString + CFBundleVersion
+# in Info.plist BEFORE building (xtool bakes them in), then match them in altstore.json.
 
 # Unit tests (pure logic: RideMetrics, route color)
 swift test
