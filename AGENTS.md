@@ -163,3 +163,29 @@ Tests/ApexTests/             ← stat/color correctness
 Bootstrapping. Foundation docs written. First screen to build: **Ride Library**
 (the saved-rides list) — the hero screen. Build it from `SampleData`, render it,
 review it against the design docs, iterate until it clears the Transit bar.
+
+---
+
+## 7. Background recording contract (DO NOT REGRESS)
+
+A ride MUST keep recording when the app is backgrounded (rider switches to Google
+Maps for nav or Spotify for music). Two independent requirements:
+
+1. **Keep receiving GPS in the background.** Requires ALL of:
+   - `UIBackgroundModes: [location]` in `Info.plist`.
+   - `manager.allowsBackgroundLocationUpdates = true` (set at `start()`, only when
+     authorized).
+   - `manager.pausesLocationUpdatesAutomatically = false` (else iOS stops updates
+     when stationary, e.g. at a light — silently truncating the ride).
+   - `desiredAccuracy = kCLLocationAccuracyBestForNavigation`.
+   These work with a FREE Apple ID (Info.plist mode, not a paid entitlement).
+2. **Survive a background TERMINATION.** Backgrounding ≠ safe: iOS can kill the
+   app under memory pressure (likelier while a heavy nav app runs). In-RAM samples
+   would be lost. `RideJournal` streams each fix to an append-only fsync'd
+   JSON-lines file; on next launch `recoverInterruptedRideIfAny()` restores the
+   ride to the garage and clears the journal. Torn last line (mid-write kill) is
+   skipped. Verified: `RideJournalTests` (iOS CI) + a standalone Linux harness
+   (the recovery logic is pure Foundation, so it's runnable/tested off-device).
+
+If you touch recording, re-verify BOTH. Losing a rider's ride is the worst
+possible bug for this app.
