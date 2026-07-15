@@ -48,8 +48,9 @@ public struct RecordingView: View {
                         Spacer()
                         followModeButton
                     }
-                    // Sit above the stats HUD + controls area.
-                    Spacer().frame(height: 260)
+                    // Clear the stats HUD + controls cluster below (~330pt) so the
+                    // toggle floats cleanly above the card, never clipped by it.
+                    Spacer().frame(height: 336)
                 }
                 .padding(.horizontal, Theme.Space.screenInset)
             }

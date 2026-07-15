@@ -69,12 +69,16 @@ struct LiveRouteMap: View {
 
     // Follow tuning ---------------------------------------------------------
     /// Camera distance (meters) in follow modes — a comfortable "riding" zoom
-    /// that shows the next few corners without losing your dot.
-    var followDistance: Double = 900
+    /// that shows the next few corners plus surrounding terrain without losing
+    /// your dot. (Too tight = empty featureless frame; this shows road context.)
+    var followDistance: Double = 2200
     /// Where the rider sits vertically in follow modes: 0 = top, 1 = bottom.
-    /// ~0.68 keeps you in the lower third so the road ahead fills the screen and
-    /// you stay clear of the bottom stats HUD.
-    var pitchAnchor: Double = 0.68
+    /// ~0.62 keeps you in the lower third so the road ahead fills the screen and
+    /// you stay clear of the bottom stats HUD (which starts ~65% down).
+    var pitchAnchor: Double = 0.62
+    /// MapKit's visible ground extent ≈ this × camera distance (pitch 0, default
+    /// FOV). Used to convert the desired screen anchor into a look-ahead offset.
+    private let verticalExtentFactor: Double = 0.536
 
     // Overview tuning -------------------------------------------------------
     /// Extra framing below the route (× its own lat span) to push it upward and
@@ -156,9 +160,12 @@ struct LiveRouteMap: View {
         // rider along the travel bearing. With a flat map, shifting the center
         // north-of-rider (in screen space) moves the rider down on screen.
         let heading = mode == .headingUp ? currentBearing : 0
-        // How far to push the look-at point ahead of the rider (meters). Scales
-        // with zoom and how low we want the rider to sit.
-        let aheadMeters = followDistance * (pitchAnchor - 0.5)
+        // Push the camera's look-at point AHEAD of the rider so the rider sits at
+        // `pitchAnchor` (lower third) on screen. The visible vertical extent is
+        // ~verticalExtentFactor × distance; to move the rider DOWN by (anchor-0.5)
+        // of the half-extent, shift the center that far ahead along the heading.
+        let halfExtent = followDistance * verticalExtentFactor / 2
+        let aheadMeters = (pitchAnchor - 0.5) * 2 * halfExtent
         let center = Self.coordinate(from: here, distanceMeters: aheadMeters, bearingDegrees: heading)
 
         let cam = MapCamera(
