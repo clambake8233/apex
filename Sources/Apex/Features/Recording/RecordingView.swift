@@ -13,7 +13,7 @@ import SwiftUI
 
 public struct RecordingView: View {
     @State private var session: RecordingSession
-    @State private var followMode: FollowMode = .headingUp
+    @State private var followMode: FollowMode = .followRoute
     private let liveColor = Theme.Palette.accent
     public var onFinish: (Ride?) -> Void = { _ in }
     public var onClose: () -> Void = {}
@@ -122,8 +122,7 @@ public struct RecordingView: View {
             VStack(spacing: Theme.Space.s1) {
                 Image(systemName: followMode.iconName)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(followMode == .overview
-                                     ? Theme.Palette.inkSecondary : liveColor)
+                    .foregroundStyle(liveColor)
                 Text(followMode.label)
                     .font(Theme.Font.label).tracking(Theme.Tracking.label)
                     .foregroundStyle(Theme.Palette.inkTertiary)

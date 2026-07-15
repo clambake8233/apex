@@ -4,41 +4,48 @@ import MapKit
 // MARK: - FollowMode
 //
 // How the live map tracks the rider (P3: predictable, glanceable while moving).
-//   • headingUp — DEFAULT. The rider is pinned at a fixed spot near the bottom of
-//     the screen and the map ROTATES so the road ahead is always "up" (nav-style).
-//     Most intuitive in motion: what's ahead of you is ahead on screen.
-//   • northUp  — the rider stays pinned, but north stays up; the world doesn't
-//     spin. Calmer, no rotation, at the cost of mentally rotating the map.
-//   • overview — the classic whole-route fit (auto-zooms out as the ride grows).
-//     Not a "follow" mode; good for a glance at the entire ride so far.
+//   • followRoute — DEFAULT. Keeps the rider's DRAWN route (their keepsake) in
+//     frame while following them as the ride grows. North-up so the route reads
+//     naturally; frames a bounded trailing window so a long ride never shrinks
+//     the route to a dot. This is the "record & keep every corner" view: your
+//     route stays the hero, and you never lose your current position.
+//   • headingUp — nav-style. The rider is pinned near the lower third and the map
+//     ROTATES so the road AHEAD is always "up". Best for reading what's coming;
+//     the already-ridden route recedes behind you.
+//   • northUp — pinned follow at a fixed zoom, north always up (no rotation). A
+//     direction chevron on the marker keeps travel direction readable.
 public enum FollowMode: String, CaseIterable, Sendable {
+    case followRoute
     case headingUp
     case northUp
-    case overview
 
     var next: FollowMode {
         switch self {
-        case .headingUp: return .northUp
-        case .northUp:   return .overview
-        case .overview:  return .headingUp
+        case .followRoute: return .headingUp
+        case .headingUp:   return .northUp
+        case .northUp:     return .followRoute
         }
     }
 
     var iconName: String {
         switch self {
-        case .headingUp: return "location.north.line.fill"
-        case .northUp:   return "location.fill"
-        case .overview:  return "map.fill"
+        case .followRoute: return "point.topleft.down.to.point.bottomright.curvepath.fill"
+        case .headingUp:   return "location.north.line.fill"
+        case .northUp:     return "location.fill"
         }
     }
 
     var label: String {
         switch self {
-        case .headingUp: return "AHEAD"
-        case .northUp:   return "NORTH"
-        case .overview:  return "ROUTE"
+        case .followRoute: return "ROUTE"
+        case .headingUp:   return "AHEAD"
+        case .northUp:     return "NORTH"
         }
     }
+
+    /// True when the map is pinned to the rider at a fixed zoom (vs. framing the
+    /// whole route). headingUp + northUp are pinned-follow; followRoute frames.
+    var isPinnedFollow: Bool { self != .followRoute }
 }
 
 // MARK: - LiveRouteMap
@@ -46,17 +53,15 @@ public enum FollowMode: String, CaseIterable, Sendable {
 // A real dark-styled MapKit map with the live route drawn on top. The rider sees
 // real streets/context while recording; the accent route line stays the hero.
 //
-// Two behaviors, chosen by FollowMode:
-//   • FOLLOW (headingUp/northUp): the camera centers on the rider's CURRENT
-//     position at a fixed zoom, with the position pinned near the lower third of
-//     the screen so the road ahead opens up above (and it clears the stats HUD).
-//     headingUp also rotates the map to the rider's travel bearing. As you ride,
-//     the map slides (and rotates) under a fixed "you are here" marker — like a
-//     navigation app. This is what answers "will it follow me?": YES, and you
-//     stay put on screen while the world moves beneath you.
-//   • OVERVIEW: frames the whole route with asymmetric margins (route sits in the
-//     upper region, both endpoints visible, clear of the HUD). Zooms out as the
-//     ride grows.
+// Behaviors by FollowMode:
+//   • followRoute (default): frames a bounded trailing window of the DRAWN route
+//     with asymmetric margins (route sits in the upper region, clear of the HUD),
+//     north-up. As you ride, the frame slides to keep your recent route + current
+//     position visible — the keepsake stays on screen.
+//   • headingUp / northUp (pinned follow): center on the CURRENT position at a
+//     fixed zoom with the rider pinned near the lower third so the road ahead
+//     opens up above (and clears the HUD). headingUp rotates the map to the
+//     travel bearing; northUp keeps north up.
 //
 // NOTE (verification): MapKit tiles require network; they load on device and on
 // GitHub CI runners. If tiles are ever unavailable, the polyline + markers still
@@ -65,24 +70,27 @@ public enum FollowMode: String, CaseIterable, Sendable {
 struct LiveRouteMap: View {
     let samples: [RideSample]
     var routeColor: Color = Theme.Palette.accent
-    var mode: FollowMode = .headingUp
+    var mode: FollowMode = .followRoute
 
-    // Follow tuning ---------------------------------------------------------
-    /// Camera distance (meters) in follow modes — a comfortable "riding" zoom
-    /// that shows the next few corners plus surrounding terrain without losing
-    /// your dot. (Too tight = empty featureless frame; this shows road context.)
+    // Pinned-follow tuning (headingUp / northUp) ----------------------------
+    /// Camera distance (meters) in pinned-follow modes — a comfortable "riding"
+    /// zoom that shows the next corners plus surrounding terrain.
     var followDistance: Double = 2200
-    /// Where the rider sits vertically in follow modes: 0 = top, 1 = bottom.
+    /// Where the rider sits vertically in pinned-follow: 0 = top, 1 = bottom.
     /// ~0.62 keeps you in the lower third so the road ahead fills the screen and
     /// you stay clear of the bottom stats HUD (which starts ~65% down).
     var pitchAnchor: Double = 0.62
     /// MapKit's visible ground extent ≈ this × camera distance (pitch 0, default
-    /// FOV). Used to convert the desired screen anchor into a look-ahead offset.
+    /// FOV). Converts the desired screen anchor into a look-ahead offset.
     private let verticalExtentFactor: Double = 0.536
 
-    // Overview tuning -------------------------------------------------------
-    /// Extra framing below the route (× its own lat span) to push it upward and
-    /// reserve room for the HUD.
+    // Route-framed tuning (followRoute) -------------------------------------
+    /// Trailing length of route to keep framed (meters). Frames the whole route
+    /// until it exceeds this, then the most-recent chunk — so a 300 km ride still
+    /// shows a meaningful, readable route rather than a shrinking dot.
+    var routeWindowMeters: Double = 20_000
+    /// Extra framing below the route (× its lat span) to push it up, reserving
+    /// room for the HUD.
     var bottomHeadroom: Double = 1.15
     /// Small margin above the route so the north end never touches the top edge.
     var topHeadroom: Double = 0.18
@@ -111,6 +119,8 @@ struct LiveRouteMap: View {
                 }
                 if let now = coords.last {
                     Annotation("", coordinate: now) {
+                        // In heading-up the map rotates (up == ahead) so a plain
+                        // dot suffices; otherwise show a heading chevron.
                         RiderMarker(color: routeColor,
                                     heading: mode == .headingUp ? nil : currentBearing)
                     }
@@ -128,17 +138,13 @@ struct LiveRouteMap: View {
 
     private func updateCamera() {
         guard samples.count > 1 else { return }
-        switch mode {
-        case .headingUp, .northUp: follow()
-        case .overview:            fitOverview()
-        }
+        if mode.isPinnedFollow { follow() } else { fitFollowRoute() }
     }
 
     /// Bearing (degrees) of the rider's current travel direction, from the last
-    /// couple of fixes. Used to rotate the map (headingUp) and orient the marker.
+    /// couple of fixes. Rotates the map (headingUp) and orients the marker.
     private var currentBearing: Double {
         guard samples.count >= 2 else { return 0 }
-        // Average the last few hops so the heading isn't jittery.
         let tail = Array(samples.suffix(4))
         var sumSin = 0.0, sumCos = 0.0
         for i in 1..<tail.count {
@@ -149,21 +155,16 @@ struct LiveRouteMap: View {
         return (avg + 360).truncatingRemainder(dividingBy: 360)
     }
 
-    /// FOLLOW: center on the current position, pinned low on screen, fixed zoom.
-    /// headingUp rotates the map to the travel bearing; northUp keeps north up.
+    /// PINNED FOLLOW: center on the current position, pinned low on screen, fixed
+    /// zoom. headingUp rotates the map to the travel bearing; northUp keeps north.
     private func follow() {
         guard let last = samples.last else { return }
         let here = CLLocationCoordinate2D(latitude: last.latitude, longitude: last.longitude)
 
-        // To pin the rider near the LOWER third (pitchAnchor) while MapCamera
-        // centers the viewport, offset the camera's center point AHEAD of the
-        // rider along the travel bearing. With a flat map, shifting the center
-        // north-of-rider (in screen space) moves the rider down on screen.
         let heading = mode == .headingUp ? currentBearing : 0
         // Push the camera's look-at point AHEAD of the rider so the rider sits at
-        // `pitchAnchor` (lower third) on screen. The visible vertical extent is
-        // ~verticalExtentFactor × distance; to move the rider DOWN by (anchor-0.5)
-        // of the half-extent, shift the center that far ahead along the heading.
+        // `pitchAnchor` (lower third). Visible vertical extent ≈ factor × distance;
+        // shift the center by (anchor-0.5) of the half-extent along the heading.
         let halfExtent = followDistance * verticalExtentFactor / 2
         let aheadMeters = (pitchAnchor - 0.5) * 2 * halfExtent
         let center = Self.coordinate(from: here, distanceMeters: aheadMeters, bearingDegrees: heading)
@@ -177,10 +178,27 @@ struct LiveRouteMap: View {
         withAnimation(Theme.Motion.smooth) { camera = .camera(cam) }
     }
 
-    /// OVERVIEW: frame the whole route into the UPPER region with asymmetric
-    /// top/bottom margins so both endpoints stay visible and clear of the HUD.
-    private func fitOverview() {
-        let lats = samples.map(\.latitude), lons = samples.map(\.longitude)
+    /// ROUTE-FRAMED FOLLOW: frame a bounded trailing window of the drawn route so
+    /// the rider's keepsake stays visible (north-up), following as it grows.
+    private func fitFollowRoute() {
+        guard samples.count > 1 else { return }
+        // Walk back from the current position accumulating distance until we've
+        // covered routeWindowMeters (or the whole route).
+        var window: [RideSample] = [samples[samples.count - 1]]
+        var dist = 0.0
+        var i = samples.count - 1
+        while i > 0 && dist < routeWindowMeters {
+            dist += RideMetrics.haversine(samples[i - 1], samples[i])
+            window.append(samples[i - 1])
+            i -= 1
+        }
+        fitRegion(window)
+    }
+
+    /// Frame `pts` into the UPPER region with asymmetric top/bottom margins so the
+    /// route sits high (both ends visible) and clears the bottom HUD. North-up.
+    private func fitRegion(_ pts: [RideSample]) {
+        let lats = pts.map(\.latitude), lons = pts.map(\.longitude)
         guard let minLat = lats.min(), let maxLat = lats.max(),
               let minLon = lons.min(), let maxLon = lons.max() else { return }
 
@@ -221,9 +239,9 @@ struct LiveRouteMap: View {
 
 // MARK: - RiderMarker
 //
-// The "you are here" marker. A glowing dot; when a heading is provided (north-up
-// mode) it wears a directional chevron so the rider can still read travel
-// direction without the map rotating. In heading-up mode the map itself rotates,
+// The "you are here" marker. A glowing dot; when a heading is provided (route /
+// north-up modes) it wears a directional chevron so travel direction stays
+// readable without the map rotating. In heading-up mode the map itself rotates,
 // so the marker stays a plain dot (up == ahead already).
 
 private struct RiderMarker: View {
