@@ -68,7 +68,23 @@ struct RootView: View {
                 // or the ride-detail screen, for deterministic renders.
                 if start == "recording" { showRecording = true }
                 if start == "detail" { showDetail = true }
+                // Real launch: if a previous session was terminated mid-ride (e.g.
+                // iOS reclaimed memory while navigating in another app), recover
+                // that ride from the crash-safe journal so it isn't lost.
+                if start != "recording" && start != "demo" && start != "detail" {
+                    recoverInterruptedRideIfAny()
+                }
             }
+    }
+
+    /// Recover a ride left behind by a background termination, save it, clear the
+    /// journal. A silent auto-save is the kind, rider-first behavior (P3/P5): the
+    /// ride simply shows up in the garage rather than nagging with a dialog.
+    private func recoverInterruptedRideIfAny() {
+        let journal = RideJournal.shared
+        guard journal.hasInterruptedRide(), let ride = journal.recoverRide() else { return }
+        store.add(ride)
+        journal.finish()
     }
 
     private func makeSession() -> RecordingSession {
@@ -82,7 +98,9 @@ struct RootView: View {
 
         if simulated {
             let provider = SimulatedLocationProvider()
-            let session = RecordingSession(provider: provider)
+            // No journal for CI/demo — the simulated provider must never touch disk
+            // or trigger crash-recovery. Real GPS sessions get the crash-safe journal.
+            let session = RecordingSession(provider: provider, journal: nil)
             if start == "recording" {
                 // Frozen, time-coherent partial ride for a deterministic CI/demo
                 // screenshot. Uses REAL road geometry (Tail of the Dragon) so the

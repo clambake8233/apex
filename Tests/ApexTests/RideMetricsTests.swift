@@ -134,3 +134,69 @@ final class RideFormatTests: XCTestCase {
         XCTAssertEqual(RideFormat.clock(3661), "1:01:01")
     }
 }
+
+// MARK: - Crash-safe journal (background-termination recovery)
+
+final class RideJournalTests: XCTestCase {
+    private func tempJournal() -> (RideJournal, URL) {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("apex-journal-test-\(UUID().uuidString)")
+        return (RideJournal(directory: dir), dir)
+    }
+
+    private func sample(_ i: Int) -> RideSample {
+        RideSample(timestamp: Date(timeIntervalSince1970: 1_000 + Double(i)),
+                   latitude: 35.5 + Double(i) * 0.001,
+                   longitude: -83.9 - Double(i) * 0.001,
+                   altitude: 500 + Double(i), speed: 10 + Double(i))
+    }
+
+    /// A journaled ride is fully recoverable after an (unfinished) session.
+    func testRecoversJournaledRide() {
+        let (j, dir) = tempJournal()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        j.begin(rideID: "ride-x", title: "Test Ride", startedAt: Date(timeIntervalSince1970: 1_000))
+        for i in 0..<10 { j.append(sample(i)) }
+        j.flush()   // drain async writes before reading back
+        // NOTE: no finish() → simulates a background termination mid-ride.
+
+        XCTAssertTrue(j.hasInterruptedRide())
+        let recovered = j.recoverRide()
+        XCTAssertNotNil(recovered)
+        XCTAssertEqual(recovered?.id, "ride-x")
+        XCTAssertEqual(recovered?.title, "Test Ride")
+        XCTAssertEqual(recovered?.samples.count, 10)
+        XCTAssertEqual(recovered?.samples.first?.latitude ?? 0, 35.5, accuracy: 1e-9)
+    }
+
+    /// finish() clears the journal so no stale recovery is offered.
+    func testFinishClearsJournal() {
+        let (j, dir) = tempJournal()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        j.begin(rideID: "ride-y", title: "T", startedAt: Date())
+        j.append(sample(0)); j.append(sample(1))
+        j.finish()
+        XCTAssertFalse(j.hasInterruptedRide())
+        XCTAssertNil(j.recoverRide())
+    }
+
+    /// A torn final line (killed mid-write) is skipped; the rest still recovers.
+    func testTornLastLineIsSkipped() {
+        let (j, dir) = tempJournal()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        j.begin(rideID: "ride-z", title: "T", startedAt: Date(timeIntervalSince1970: 1_000))
+        for i in 0..<5 { j.append(sample(i)) }
+        j.flush()   // ensure the 5 good lines are on disk before we tear the file
+        // Append a garbage half-written line directly to the file.
+        let file = dir.appendingPathComponent("ride-in-progress.jsonl")
+        if let h = try? FileHandle(forWritingTo: file) {
+            h.seekToEndOfFile()
+            h.write(Data("{\"t\":1005,\"la\":35.5,\"lo\":-8".utf8))  // torn, no newline/close
+            try? h.close()
+        }
+        let recovered = j.recoverRide()
+        XCTAssertNotNil(recovered)
+        XCTAssertEqual(recovered?.samples.count, 5)   // torn line skipped, 5 good ones kept
+    }
+}

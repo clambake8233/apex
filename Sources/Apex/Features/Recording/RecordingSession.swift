@@ -38,12 +38,17 @@ public final class RecordingSession {
 
     // MARK: Dependencies
     private let provider: LocationProviding
+    private let journal: RideJournal?
     private var ticker: Timer?
     private var pausedAccumulated: TimeInterval = 0
     private var lastResumeAt: Date?
+    /// Stable id for this recording, assigned at start and reused on finish so the
+    /// crash-recovery journal and the saved ride share one identity.
+    private var rideID: String = ""
 
-    public init(provider: LocationProviding) {
+    public init(provider: LocationProviding, journal: RideJournal? = RideJournal.shared) {
         self.provider = provider
+        self.journal = journal
         self.provider.onSample = { [weak self] sample in
             self?.ingest(sample)
         }
@@ -77,7 +82,12 @@ public final class RecordingSession {
         pausedAccumulated = 0
         samples.removeAll()
         distanceMeters = 0; currentSpeed = 0; topSpeed = 0; elapsed = 0
+        rideID = "ride-\(UUID().uuidString)"
         state = .recording
+        // Open a crash-safe journal so a background termination (e.g. iOS reclaims
+        // memory while Google Maps navigates) can't lose the whole ride.
+        journal?.begin(rideID: rideID, title: Self.autoTitle(for: startedAt ?? Date()),
+                       startedAt: startedAt ?? Date())
         provider.start()
         startTicker()
     }
@@ -106,9 +116,11 @@ public final class RecordingSession {
         provider.stop()
         ticker?.invalidate()
         state = .finished
+        // Ride is complete and about to be handed to the store — clear the journal.
+        journal?.finish()
         guard samples.count > 1, let start = startedAt else { return nil }
         return Ride(
-            id: "ride-\(UUID().uuidString)",
+            id: rideID.isEmpty ? "ride-\(UUID().uuidString)" : rideID,
             title: Self.autoTitle(for: start),
             startedAt: start,
             endedAt: Date(),
@@ -126,6 +138,9 @@ public final class RecordingSession {
         let spd = s.speed >= 0 ? s.speed : 0
         currentSpeed = spd
         topSpeed = max(topSpeed, spd)
+        // Stream to the crash-safe journal (off the main thread) so a mid-ride
+        // termination loses at most this one fix, not the whole ride.
+        journal?.append(s)
     }
 
     // MARK: Elapsed timekeeping
