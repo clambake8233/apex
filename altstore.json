@@ -21,6 +21,15 @@
       "screenshots": [],
       "versions": [
         {
+          "version": "1.1.0",
+          "buildVersion": "2",
+          "date": "2026-07-15",
+          "localizedDescription": "Live Recording \u2014 record a ride on a real dark map. Your route draws over actual streets as you go, with a live distance / time / speed HUD and big Start/Finish controls for gloved thumbs.",
+          "downloadURL": "https://github.com/clambake8233/apex/releases/download/v1.1.0/Apex.ipa",
+          "size": 1337107,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.0.0",
           "buildVersion": "1",
           "date": "2026-07-15",
