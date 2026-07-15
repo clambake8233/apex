@@ -5,10 +5,14 @@ import SwiftUI
 // One ride as a keepsake (Principle P2). Structure:
 //   [ route thumbnail — the hero, framed like a photo         ]
 //   [ identity spine | title            day · time-of-day     ]
-//   [ distance   duration   top speed     (trophy stats)      ]
+//   [ distance   duration   corners       (trophy stats)      ]
 //
 // The per-ride identity color paints the route line AND a spine beside the
 // title, so rides are recognizable by hue (our "Transit line color").
+//
+// NOTE: the third stat is CORNERS, not top speed — the list celebrates the
+// road's character (how twisty the ride was), not raw speed. Top speed still
+// lives on the ride detail screen; we just don't lead with it in the garage.
 
 public struct RideCardView: View {
     public let ride: Ride
@@ -18,7 +22,7 @@ public struct RideCardView: View {
         let color = Theme.routeColor(for: ride.id)
         let dist = RideMetrics.distanceMeters(ride.samples)
         let dur = RideMetrics.elapsedDuration(ride)
-        let top = RideMetrics.topSpeedMetersPerSec(ride.samples)
+        let corners = RideMetrics.cornerCount(ride.samples)
 
         ApexCard(padding: Theme.Space.s4) {
             VStack(alignment: .leading, spacing: Theme.Space.s4) {
@@ -59,10 +63,9 @@ public struct RideCardView: View {
                               label: "Duration",
                               alignment: .center)
                     Spacer(minLength: 0)
-                    StatBlock(value: RideFormat.speed(top),
-                              unit: RideFormat.speedUnit,
-                              label: "Top Speed",
-                              tint: Theme.Palette.speed,
+                    StatBlock(value: "\(corners)",
+                              label: "Corners",
+                              tint: color,
                               alignment: .trailing)
                 }
                 .frame(maxWidth: .infinity)

@@ -13,6 +13,7 @@ import SwiftUI
 
 public struct RecordingView: View {
     @State private var session: RecordingSession
+    @State private var followMode: FollowMode = .headingUp
     private let liveColor = Theme.Palette.accent
     public var onFinish: (Ride?) -> Void = { _ in }
     public var onClose: () -> Void = {}
@@ -39,6 +40,20 @@ public struct RecordingView: View {
                 Spacer()
             }
 
+            // Follow-mode toggle, right side, floating above the HUD.
+            if session.samples.count > 1 {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        followModeButton
+                    }
+                    // Sit above the stats HUD + controls area.
+                    Spacer().frame(height: 260)
+                }
+                .padding(.horizontal, Theme.Space.screenInset)
+            }
+
             // Stats HUD + primary control, bottom-anchored.
             VStack(spacing: 0) {
                 Spacer()
@@ -58,7 +73,7 @@ public struct RecordingView: View {
                     // Real dark MapKit map with the live route on top (streets/
                     // context while riding). Camera fits the route into the upper
                     // region so the current-position marker clears the HUD.
-                    LiveRouteMap(samples: session.samples, routeColor: liveColor)
+                    LiveRouteMap(samples: session.samples, routeColor: liveColor, mode: followMode)
                         .overlay(
                             // Subtle top-down darkening so the top bar + route
                             // read cleanly over bright map areas.
@@ -95,6 +110,39 @@ public struct RecordingView: View {
         case .recording, .paused: return "Acquiring GPS…"
         case .finished: return "Ride saved"
         }
+    }
+
+    // MARK: Follow-mode toggle
+
+    private var followModeButton: some View {
+        Button {
+            withAnimation(Theme.Motion.smooth) { followMode = followMode.next }
+        } label: {
+            VStack(spacing: Theme.Space.s1) {
+                Image(systemName: followMode.iconName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(followMode == .overview
+                                     ? Theme.Palette.inkSecondary : liveColor)
+                Text(followMode.label)
+                    .font(Theme.Font.label).tracking(Theme.Tracking.label)
+                    .foregroundStyle(Theme.Palette.inkTertiary)
+            }
+            .frame(width: 56, height: 56)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.button, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.button, style: .continuous)
+                            .fill(Theme.Palette.surface.opacity(0.85))
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.button, style: .continuous)
+                    .strokeBorder(Theme.Palette.surfaceStroke, lineWidth: Theme.Radius.hairline)
+            )
+            .themeShadow(Theme.Shadow(color: .black.opacity(0.4), radius: 10, x: 0, y: 4))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Top bar

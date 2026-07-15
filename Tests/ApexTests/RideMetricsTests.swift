@@ -59,6 +59,48 @@ final class RideMetricsTests: XCTestCase {
         ]
         XCTAssertEqual(RideMetrics.movingDuration(s), 10, accuracy: 0.001)
     }
+
+    // MARK: Corners
+
+    /// A dead-straight line has zero corners.
+    func testCornerCountStraightLineIsZero() {
+        let t = Date()
+        // ~10 points marching due east, ~20 m apart, no turns.
+        var s: [RideSample] = []
+        for i in 0..<10 {
+            s.append(RideSample(timestamp: t, latitude: 0,
+                                longitude: Double(i) * 0.00018, altitude: 0, speed: 10))
+        }
+        XCTAssertEqual(RideMetrics.cornerCount(s), 0)
+    }
+
+    /// A single ~90° bend (east, then north) counts as exactly one corner.
+    func testCornerCountSingleRightAngle() {
+        let t = Date()
+        var s: [RideSample] = []
+        // Leg 1: due east (well over the 8 m thinning threshold per hop).
+        for i in 0..<6 {
+            s.append(RideSample(timestamp: t, latitude: 0,
+                                longitude: Double(i) * 0.00018, altitude: 0, speed: 10))
+        }
+        // Leg 2: due north from the corner point.
+        let lon = 5 * 0.00018
+        for i in 1..<6 {
+            s.append(RideSample(timestamp: t, latitude: Double(i) * 0.00018,
+                                longitude: lon, altitude: 0, speed: 10))
+        }
+        XCTAssertEqual(RideMetrics.cornerCount(s), 1)
+    }
+
+    /// Corners must be deterministic — same track in, same count out.
+    func testCornerCountDeterministic() {
+        let ride = SampleData.rides[0]
+        let a = RideMetrics.cornerCount(ride.samples)
+        let b = RideMetrics.cornerCount(ride.samples)
+        XCTAssertEqual(a, b)
+        // Sanity: a real twisty sample ride has a meaningful, non-trivial count.
+        XCTAssertGreaterThan(a, 3)
+    }
 }
 
 final class RouteColorTests: XCTestCase {

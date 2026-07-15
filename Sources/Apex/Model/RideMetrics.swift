@@ -70,6 +70,67 @@ public enum RideMetrics {
         return gain
     }
 
+    /// Number of corners carved — the app's signature stat (tagline: "Keep every
+    /// corner"). A corner is a sustained directional change of at least
+    /// `minTurnDegrees` accumulated along the track. We deliberately count the
+    /// ROAD's character, not speed, so the trophy rewards a twisty ride rather
+    /// than a fast one.
+    ///
+    /// Algorithm: thin the track to ~`minSegmentMeters` spacing (so dense GPS
+    /// jitter doesn't inflate the count), walk the bearing between consecutive
+    /// kept points, and accumulate signed turn. A reversal of direction starts a
+    /// fresh accumulation; whenever the running turn reaches the threshold we
+    /// count one corner and reset. This maps closely to how a rider would count
+    /// "corners" — one per meaningful bend, ignoring straight-line wobble.
+    public static func cornerCount(
+        _ samples: [RideSample],
+        minTurnDegrees: Double = 30,
+        minSegmentMeters: Double = 8
+    ) -> Int {
+        guard samples.count >= 3 else { return 0 }
+
+        // Thin to meaningful spacing.
+        var kept: [RideSample] = [samples[0]]
+        for s in samples.dropFirst() {
+            if haversine(kept[kept.count - 1], s) >= minSegmentMeters { kept.append(s) }
+        }
+        guard kept.count >= 3 else { return 0 }
+
+        // Bearings between consecutive kept points.
+        var bearings: [Double] = []
+        bearings.reserveCapacity(kept.count - 1)
+        for i in 1..<kept.count { bearings.append(bearing(kept[i - 1], kept[i])) }
+
+        var corners = 0
+        var accum = 0.0
+        for i in 1..<bearings.count {
+            var d = bearings[i] - bearings[i - 1]
+            while d > 180 { d -= 360 }
+            while d < -180 { d += 360 }
+            // If direction reverses, begin a new corner accumulation.
+            if accum != 0 && (d > 0) != (accum > 0) {
+                accum = d
+            } else {
+                accum += d
+            }
+            if abs(accum) >= minTurnDegrees {
+                corners += 1
+                accum = 0
+            }
+        }
+        return corners
+    }
+
+    /// Initial bearing from a to b, in degrees (0 = north, clockwise).
+    static func bearing(_ a: RideSample, _ b: RideSample) -> Double {
+        let lat1 = a.latitude * .pi / 180
+        let lat2 = b.latitude * .pi / 180
+        let dLon = (b.longitude - a.longitude) * .pi / 180
+        let y = sin(dLon) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        return atan2(y, x) * 180 / .pi
+    }
+
     // MARK: Haversine
 
     /// Great-circle distance between two samples, in meters.
