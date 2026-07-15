@@ -78,10 +78,11 @@ struct RootView: View {
             let session = RecordingSession(provider: provider)
             if start == "recording" {
                 // Frozen, time-coherent partial ride for a deterministic CI/demo
-                // screenshot (distance & clock reconcile; no live timer/GPS).
-                let track = SampleData.rides[2].samples
-                let partial = Array(track.prefix(max(2, track.count * 2 / 5)))
-                session.loadPreview(partial)
+                // screenshot. Uses REAL road geometry (Tail of the Dragon) so the
+                // route sits on an actual road over the MapKit base — not a random
+                // walk that drifts across water. Distance & clock reconcile by
+                // construction (no live timer/GPS).
+                session.loadPreview(RecordingPreviewTrack.samples)
             }
             return session
         } else {

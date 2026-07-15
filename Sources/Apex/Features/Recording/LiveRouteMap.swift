@@ -16,9 +16,13 @@ import MapKit
 struct LiveRouteMap: View {
     let samples: [RideSample]
     var routeColor: Color = Theme.Palette.accent
-    /// Fraction of the latitude span to shift the camera south, so the route
-    /// floats into the upper part of the screen (clear of the bottom HUD).
-    var upperBias: Double = 0.18
+    /// How far below the route (as a multiple of the route's own latitude span)
+    /// to extend the framed region, pushing the route into the UPPER part of the
+    /// screen so both the start dot and the current-position marker stay visible
+    /// and clear of the bottom stats HUD. Larger = route sits higher.
+    var bottomHeadroom: Double = 1.15
+    /// Small margin above the route so the start/finish never touches the top edge.
+    var topHeadroom: Double = 0.18
 
     @State private var camera: MapCameraPosition = .automatic
 
@@ -65,11 +69,27 @@ struct LiveRouteMap: View {
         let lats = samples.map(\.latitude), lons = samples.map(\.longitude)
         guard let minLat = lats.min(), let maxLat = lats.max(),
               let minLon = lons.min(), let maxLon = lons.max() else { return }
-        let latSpan = max((maxLat - minLat) * 1.5, 0.003)
-        let lonSpan = max((maxLon - minLon) * 1.5, 0.003)
-        // Shift center south so the route sits high on screen (clear of the HUD).
-        let centerLat = (minLat + maxLat) / 2 - latSpan * upperBias
-        let center = CLLocationCoordinate2D(latitude: centerLat, longitude: (minLon + maxLon) / 2)
+
+        // Base spans of the route itself.
+        let rawLatSpan = max(maxLat - minLat, 0.002)
+        let rawLonSpan = max(maxLon - minLon, 0.002)
+
+        // Frame the route into the UPPER region using ASYMMETRIC vertical margins:
+        // a small margin above (topHeadroom) keeps the north end off the top edge;
+        // a large margin below (bottomHeadroom) reserves space for the stats HUD
+        // and pushes the whole route up. This keeps BOTH the start dot and the
+        // current-position marker on-screen and clear of the card (the previous
+        // symmetric fit + south "bias" pushed the start point off the top).
+        let latSpan = rawLatSpan * (1 + topHeadroom + bottomHeadroom)
+        // Keep the map from over-zooming horizontally on a tall, narrow route.
+        let lonSpan = max(rawLonSpan * 1.35, latSpan * 0.62)
+
+        // Center latitude: place route so topHeadroom sits above maxLat.
+        let centerLat = maxLat + rawLatSpan * topHeadroom - latSpan / 2
+        let center = CLLocationCoordinate2D(
+            latitude: centerLat,
+            longitude: (minLon + maxLon) / 2
+        )
         let region = MKCoordinateRegion(
             center: center,
             span: MKCoordinateSpan(latitudeDelta: latSpan, longitudeDelta: lonSpan)

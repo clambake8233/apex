@@ -164,13 +164,22 @@ public struct RecordingView: View {
         .padding(.horizontal, Theme.Space.s6)
         .frame(maxWidth: .infinity)
         .background(
+            // Frosted, near-opaque card. Over a REAL map the base was showing
+            // through at 0.86 (map labels ghosting behind the stats). Layer a
+            // blur material UNDER an opaque surface fill so no map content bleeds
+            // through, while keeping a premium translucent-glass read.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .fill(Theme.Palette.surface.opacity(0.86))
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .fill(Theme.Palette.surface.opacity(0.97))
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(Theme.Palette.surfaceStroke, lineWidth: Theme.Radius.hairline)
         )
+        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
         .padding(.horizontal, Theme.Space.screenInset)
     }
 
