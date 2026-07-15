@@ -160,4 +160,20 @@ public final class RecordingSession {
         default:      return "Night Ride"
         }
     }
+
+    // MARK: Preview (CI / demo)
+
+    /// Load a FROZEN, time-coherent recording snapshot for screenshots/previews —
+    /// no live timer, no GPS. Elapsed is derived from the samples' own timespan so
+    /// distance and clock reconcile (a real partial ride, paused in time).
+    public func loadPreview(_ preview: [RideSample]) {
+        guard preview.count > 1 else { return }
+        samples = preview
+        startedAt = preview.first?.timestamp
+        distanceMeters = RideMetrics.distanceMeters(preview)
+        elapsed = preview.last!.timestamp.timeIntervalSince(preview.first!.timestamp)
+        currentSpeed = preview.last!.speed >= 0 ? preview.last!.speed : 0
+        topSpeed = RideMetrics.topSpeedMetersPerSec(preview)
+        state = .recording
+    }
 }

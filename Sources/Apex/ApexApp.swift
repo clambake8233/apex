@@ -77,9 +77,11 @@ struct RootView: View {
             let provider = SimulatedLocationProvider()
             let session = RecordingSession(provider: provider)
             if start == "recording" {
-                // Prime a partial track + start so CI shows a live-looking ride.
-                provider.prime(48)
-                session.startOrRequest()
+                // Frozen, time-coherent partial ride for a deterministic CI/demo
+                // screenshot (distance & clock reconcile; no live timer/GPS).
+                let track = SampleData.rides[2].samples
+                let partial = Array(track.prefix(max(2, track.count * 2 / 5)))
+                session.loadPreview(partial)
             }
             return session
         } else {

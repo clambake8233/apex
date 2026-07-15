@@ -164,12 +164,31 @@ public final class SimulatedLocationProvider: LocationProviding {
         timer = nil
     }
 
-    /// Emit the first `n` samples synchronously — used for a deterministic CI
-    /// screenshot (a partially-recorded ride) without waiting on a timer.
+    /// Emit the first `n` samples synchronously with time-coherent timestamps —
+    /// used for a deterministic CI screenshot (a partially-recorded ride) without
+    /// waiting on a timer. Samples are back-dated using their ORIGINAL relative
+    /// spacing and ending "now", so the recorded distance and the elapsed clock
+    /// reconcile (no "1.9 km in 3 seconds" artifact).
     public func prime(_ n: Int) {
-        for i in 0..<min(n, track.count) {
-            onSample?(track[i])
+        let count = min(n, track.count)
+        guard count > 1 else { return }
+        let now = Date()
+        let originStart = track[0].timestamp
+        let originEnd = track[count - 1].timestamp
+        let span = max(originEnd.timeIntervalSince(originStart), 1)
+        for i in 0..<count {
+            let src = track[i]
+            let frac = src.timestamp.timeIntervalSince(originStart) / span
+            // Map the original timeline onto [now - span, now].
+            let ts = now.addingTimeInterval(-span + frac * span)
+            onSample?(RideSample(
+                timestamp: ts,
+                latitude: src.latitude,
+                longitude: src.longitude,
+                altitude: src.altitude,
+                speed: src.speed
+            ))
         }
-        index = min(n, track.count)
+        index = count
     }
 }

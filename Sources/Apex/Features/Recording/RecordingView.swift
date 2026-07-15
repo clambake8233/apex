@@ -62,22 +62,31 @@ public struct RecordingView: View {
                 RouteGrid().stroke(Color.white.opacity(0.035), lineWidth: 1)
 
                 if session.samples.count > 1 {
-                    let shape = RoutePath(samples: session.samples, padding: 60)
-                    // Glow underlay.
-                    shape.stroke(liveColor.opacity(0.3),
-                                 style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
-                        .blur(radius: 6)
-                    // Live line.
-                    shape.stroke(liveColor,
-                                 style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                    // Leading "current position" dot at the last sample.
-                    if let ends = shape.endpoints(in: CGRect(origin: .zero, size: geo.size)) {
-                        Circle().fill(Theme.Palette.success)
-                            .frame(width: 11, height: 11).position(ends.start)
-                        Circle().fill(liveColor)
-                            .frame(width: 16, height: 16).position(ends.end)
-                            .shadow(color: liveColor, radius: 8)
+                    // Fit the route into the UPPER region only, so the current-
+                    // position dot is never hidden behind the stats HUD/controls
+                    // that occupy the lower ~42% of the screen.
+                    let routeRect = CGRect(
+                        x: 0, y: geo.safeAreaInsets.top + 40,
+                        width: geo.size.width,
+                        height: geo.size.height * 0.52
+                    )
+                    let shape = RoutePath(samples: session.samples, padding: 44)
+                    ZStack {
+                        shape.stroke(liveColor.opacity(0.3),
+                                     style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
+                            .blur(radius: 6)
+                        shape.stroke(liveColor,
+                                     style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                        if let ends = shape.endpoints(in: CGRect(origin: .zero, size: routeRect.size)) {
+                            Circle().fill(Theme.Palette.success)
+                                .frame(width: 11, height: 11).position(ends.start)
+                            Circle().fill(liveColor)
+                                .frame(width: 16, height: 16).position(ends.end)
+                                .shadow(color: liveColor, radius: 8)
+                        }
                     }
+                    .frame(width: routeRect.width, height: routeRect.height)
+                    .position(x: routeRect.midX, y: routeRect.midY)
                 } else {
                     // Pre-start / acquiring state.
                     VStack(spacing: Theme.Space.s3) {
@@ -88,6 +97,7 @@ public struct RecordingView: View {
                             .font(Theme.Font.body)
                             .foregroundStyle(Theme.Palette.inkTertiary)
                     }
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
                 }
             }
         }
