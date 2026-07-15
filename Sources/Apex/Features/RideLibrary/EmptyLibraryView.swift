@@ -26,12 +26,12 @@ public struct EmptyLibraryView: View {
             Theme.canvas.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                Spacer()
+                Spacer(minLength: Theme.Space.s10)
 
                 // Hero motif: the racing-line "apex" curve, glowing.
                 ApexCurveMark()
-                    .frame(width: 132, height: 132)
-                    .padding(.bottom, Theme.Space.s8)
+                    .frame(width: 116, height: 116)
+                    .padding(.bottom, Theme.Space.s6)
 
                 Text("Your garage is empty")
                     .font(Theme.Font.titleL)
@@ -39,15 +39,15 @@ public struct EmptyLibraryView: View {
                     .foregroundStyle(Theme.Palette.inkPrimary)
                     .multilineTextAlignment(.center)
 
-                Text("Record your first ride and it'll live here —\nroute, distance, and every corner you carved.")
+                Text("Record your first ride and it'll live here — route, distance, and every corner you carved.")
                     .font(Theme.Font.body)
                     .foregroundStyle(Theme.Palette.inkSecondary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(3)
+                    .lineSpacing(4)
                     .padding(.top, Theme.Space.s3)
-                    .padding(.horizontal, Theme.Space.s6)
+                    .padding(.horizontal, Theme.Space.s8)
 
-                Spacer()
+                Spacer(minLength: Theme.Space.s10)
 
                 VStack(spacing: Theme.Space.s3) {
                     // Primary — the real first step.
@@ -107,8 +107,11 @@ public struct EmptyLibraryView: View {
 
 // MARK: - ApexCurveMark
 //
-// The brand motif: a stylized racing line sweeping through a corner apex, with
-// an accent glow. Custom-drawn (DESIGN_SYSTEM §6 — not a stock SF Symbol).
+// The brand motif: a clean, symmetric racing line sweeping down through a corner
+// apex and back out, with a controlled accent glow and the apex point anchored
+// exactly to the curve's lowest point. Custom-drawn (DESIGN_SYSTEM §6 — not a
+// stock SF Symbol). Symmetry and a tight glow are what make it read as an
+// engineered mark rather than a freehand swoosh.
 
 public struct ApexCurveMark: View {
     public init() {}
@@ -116,54 +119,60 @@ public struct ApexCurveMark: View {
     public var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
+            // The apex sits at the curve's lowest point (center-x, apexY).
+            let apexX = w * 0.5
+            let apexY = h * 0.72
             ZStack {
-                // Soft accent halo.
+                // Soft, contained accent halo centered on the apex.
                 Circle()
                     .fill(Theme.Palette.accentGlow)
-                    .blur(radius: 26)
-                    .frame(width: w * 0.7, height: h * 0.7)
+                    .frame(width: w * 0.5, height: w * 0.5)
+                    .blur(radius: 18)
+                    .position(x: apexX, y: apexY)
 
-                // Track edges (subtle).
-                ApexLine(inset: 0.12)
-                    .stroke(Color.white.opacity(0.08),
-                            style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                ApexLine(inset: 0.88)
-                    .stroke(Color.white.opacity(0.08),
+                // Faint outer "track edge" echo (symmetric).
+                ApexCurve(depth: 0.58)
+                    .stroke(Color.white.opacity(0.07),
                             style: StrokeStyle(lineWidth: 2, lineCap: .round))
 
-                // The racing line itself — accent, glowing.
-                ApexLine(inset: 0.5)
-                    .stroke(Theme.Palette.accent.opacity(0.4),
-                            style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .blur(radius: 7)
-                ApexLine(inset: 0.5)
+                // The racing line — accent, with a tight glow underlay.
+                ApexCurve(depth: 0.72)
+                    .stroke(Theme.Palette.accent.opacity(0.35),
+                            style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .blur(radius: 4)
+                ApexCurve(depth: 0.72)
                     .stroke(Theme.accentGradient,
                             style: StrokeStyle(lineWidth: 5, lineCap: .round))
 
-                // Apex point marker.
+                // Apex point marker, anchored to the curve's lowest point.
                 Circle()
                     .fill(Theme.Palette.inkPrimary)
-                    .frame(width: 9, height: 9)
-                    .position(x: w * 0.5, y: h * 0.62)
-                    .shadow(color: Theme.Palette.accent, radius: 6)
+                    .frame(width: 10, height: 10)
+                    .position(x: apexX, y: apexY)
+                    .shadow(color: Theme.Palette.accent, radius: 5)
             }
         }
     }
 }
 
-// A corner: enters top-left, apexes low-center, exits top-right. `inset` shifts
-// the line across the track width (0 = inside edge, 1 = outside edge).
-struct ApexLine: Shape {
-    var inset: CGFloat
+// A symmetric corner: enters top-left, dips to an apex at bottom-center, exits
+// top-right. `depth` is the fraction of height the apex reaches (0..1). Built as
+// two mirror-image quadratic curves meeting at the apex, so it's exactly
+// symmetric about the vertical center line.
+struct ApexCurve: Shape {
+    var depth: CGFloat
     func path(in rect: CGRect) -> Path {
         let w = rect.width, h = rect.height
-        let apexY = h * (0.50 + 0.20 * inset)   // outer lines apex later/higher
+        let topY = h * 0.14
+        let apex = CGPoint(x: w * 0.5, y: h * depth)
+        let left = CGPoint(x: w * 0.12, y: topY)
+        let right = CGPoint(x: w * 0.88, y: topY)
         var p = Path()
-        p.move(to: CGPoint(x: w * 0.08, y: h * 0.10))
-        p.addQuadCurve(
-            to: CGPoint(x: w * 0.92, y: h * 0.10),
-            control: CGPoint(x: w * 0.5, y: apexY + h * 0.55)
-        )
+        p.move(to: left)
+        // Left half: control pulls straight down toward the apex depth.
+        p.addQuadCurve(to: apex, control: CGPoint(x: w * 0.26, y: apex.y))
+        // Right half: mirror image.
+        p.addQuadCurve(to: right, control: CGPoint(x: w * 0.74, y: apex.y))
         return p
     }
 }

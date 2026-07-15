@@ -117,16 +117,17 @@ public struct RouteThumbnail: View {
 
                 let shape = RoutePath(samples: ride.samples, padding: 18)
 
-                // Outer glow (neon on dark, DESIGN_SYSTEM §7).
+                // Outer glow (neon on dark, DESIGN_SYSTEM §7) — restrained so it
+                // reads as a crisp line, not a smudge.
                 shape
-                    .stroke(color.opacity(0.35),
-                            style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round))
-                    .blur(radius: 6)
+                    .stroke(color.opacity(0.28),
+                            style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                    .blur(radius: 3.5)
 
                 // The route line itself.
                 shape
                     .stroke(color,
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
 
                 // Start (green) & end (accent) dots.
                 if let ends = shape.endpoints(in: CGRect(origin: .zero, size: geo.size)) {

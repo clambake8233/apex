@@ -22,8 +22,8 @@ public enum Theme {
 
         // Ink
         public static let inkPrimary   = Color(hex: 0xF5F7FA)
-        public static let inkSecondary = Color(hex: 0xAEB4C0)
-        public static let inkTertiary  = Color(hex: 0x6E7480)
+        public static let inkSecondary = Color(hex: 0xB8BEC9)
+        public static let inkTertiary  = Color(hex: 0x848B98)
         public static let inkInverse   = Color(hex: 0x0E1014)
 
         // Accent — "Ignition". Scarce: primary action, live state, hero stat.
@@ -58,16 +58,36 @@ public enum Theme {
 
     // Per-ride identity color (our "Transit line color").
     // Deterministic from a stable string (ride id) so a ride always looks the
-    // same. Rich saturation, high brightness → glows on the dark canvas.
-    // Rejects a dull yellow-green "mud" band so no ride looks washed out.
+    // same ACROSS LAUNCHES. NOTE: Swift's built-in Hasher is randomly seeded per
+    // process, so we use a stable FNV-1a hash here — otherwise colors would
+    // change every launch.
+    //
+    // We index a CURATED palette (like Transit's fixed line colors) rather than
+    // compute a raw hue: every entry is hand-picked to be vivid on the dark
+    // canvas and clearly distinct from its neighbors, with no dull "mud" hues.
+    // A hash collision just means two rides share a good-looking color — far
+    // better than a computed hue accidentally landing muddy or near-identical.
+    public static let routePalette: [Color] = [
+        Color(hex: 0x38D6B0),  // mint
+        Color(hex: 0x4FA3FF),  // sky blue
+        Color(hex: 0xC08CFF),  // violet
+        Color(hex: 0xFF5C8A),  // rose
+        Color(hex: 0x5AE0E0),  // cyan
+        Color(hex: 0xFFB020),  // amber
+        Color(hex: 0x8A7CFF),  // indigo
+        Color(hex: 0x54D66A),  // green
+        Color(hex: 0xFF7A5C),  // coral
+        Color(hex: 0xE267E2),  // magenta
+    ]
+
     public static func routeColor(for id: String) -> Color {
-        var hasher = Hasher()
-        hasher.combine(id)
-        let raw = UInt32(truncatingIfNeeded: hasher.finalize()) &* 2654435761
-        var hue = Double(raw % 360) / 360.0
-        // Nudge out of the mud band (hue ~0.11–0.19 = dull yellow-green).
-        if hue > 0.11 && hue < 0.19 { hue += 0.12 }
-        return Color(hue: hue, saturation: 0.72, brightness: 0.95)
+        // FNV-1a 64-bit over UTF-8 bytes (stable, well-distributed).
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in id.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3
+        }
+        return routePalette[Int(hash % UInt64(routePalette.count))]
     }
 
     // MARK: Typography

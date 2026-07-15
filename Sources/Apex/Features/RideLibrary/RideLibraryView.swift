@@ -45,7 +45,9 @@ public struct RideLibraryView: View {
                 ForEach(store.rides, id: \.id) { ride in
                     RideCardView(ride: ride)
                 }
-                Color.clear.frame(height: 96)
+                // Clearance so the last card fully scrolls above the floating
+                // Record button + its scrim (button 58 + paddings + scrim).
+                Color.clear.frame(height: 150)
             }
             .padding(.horizontal, Theme.Space.screenInset)
             .padding(.top, Theme.Space.s6)

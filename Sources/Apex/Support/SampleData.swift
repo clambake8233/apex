@@ -33,7 +33,7 @@ public enum SampleData {
             windiness: 0.8, spanKm: 41, climb: 520, topKmh: 104, seed: 47
         ),
         makeRide(
-            id: "ride-sunday-blast",
+            id: "ride-sunday-blast-1",
             title: "Sunday Morning Blast",
             daysAgo: 9, startHour: 9, minutes: 38,
             center: (40.0470, -105.3720),
