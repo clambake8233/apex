@@ -16,6 +16,7 @@ import SwiftUI
 public struct RideLibraryView: View {
     @State private var store: RideStore
     private var onRecord: () -> Void
+    @State private var selectedRide: Ride?
 
     public init(store: RideStore = RideStore(mode: .demo), onRecord: @escaping () -> Void = {}) {
         _store = State(initialValue: store)
@@ -36,6 +37,10 @@ public struct RideLibraryView: View {
                 )
             }
         }
+        .fullScreenCover(item: $selectedRide) { ride in
+            RideDetailView(ride: ride, onClose: { selectedRide = nil })
+                .preferredColorScheme(.dark)
+        }
     }
 
     // MARK: Ride list
@@ -45,7 +50,12 @@ public struct RideLibraryView: View {
             VStack(alignment: .leading, spacing: Theme.Space.s6) {
                 header
                 ForEach(store.rides, id: \.id) { ride in
-                    RideCardView(ride: ride)
+                    Button {
+                        selectedRide = ride
+                    } label: {
+                        RideCardView(ride: ride)
+                    }
+                    .buttonStyle(.plain)
                 }
                 // Clearance so the last card fully scrolls above the floating
                 // Record button + its scrim (button 58 + paddings + scrim).

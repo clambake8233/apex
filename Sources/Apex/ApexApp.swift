@@ -20,7 +20,7 @@ struct ApexApp: App {
         self.start = start
         let mode: RideStore.Mode
         switch start {
-        case "demo", "recording": mode = .demo
+        case "demo", "recording", "detail": mode = .demo
         case "live": mode = .live
         default: mode = .empty
         }
@@ -44,6 +44,7 @@ struct RootView: View {
     @State var store: RideStore
     let start: String
     @State private var showRecording = false
+    @State private var showDetail = false
 
     var body: some View {
         RideLibraryView(store: store, onRecord: { showRecording = true })
@@ -58,9 +59,15 @@ struct RootView: View {
                 )
                 .preferredColorScheme(.dark)
             }
+            .fullScreenCover(isPresented: $showDetail) {
+                RideDetailView(ride: SampleData.rides[0], onClose: { showDetail = false })
+                    .preferredColorScheme(.dark)
+            }
             .onAppear {
-                // CI/demo: boot straight into a mid-ride recording screenshot.
+                // CI/demo: boot straight into a mid-ride recording screenshot,
+                // or the ride-detail screen, for deterministic renders.
                 if start == "recording" { showRecording = true }
+                if start == "detail" { showDetail = true }
             }
     }
 

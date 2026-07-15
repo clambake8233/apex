@@ -70,6 +70,11 @@ public enum RideMetrics {
         return gain
     }
 
+    /// Highest altitude reached (meters). 0 for an empty track.
+    public static func maxAltitudeMeters(_ samples: [RideSample]) -> Double {
+        samples.map(\.altitude).max() ?? 0
+    }
+
     /// Number of corners carved — the app's signature stat (tagline: "Keep every
     /// corner"). A corner is a sustained directional change of at least
     /// `minTurnDegrees` accumulated along the track. We deliberately count the
