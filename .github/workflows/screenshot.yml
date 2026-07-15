@@ -91,9 +91,11 @@ jobs:
             echo "  empty attempt $i: ${sz} bytes"; [ "$sz" -gt 100000 ] && break; sleep 2
           done
 
-          # Live recording (simulated provider primed with a partial track):
+          # Live recording (simulated provider, frozen coherent partial ride).
+          # Extra settle time so MapKit map tiles have a chance to load.
           xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
           SIMCTL_CHILD_APEX_START="recording" xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+          sleep 6
           for i in 1 2 3 4 5 6; do
             sleep 2
             xcrun simctl io "$UDID" screenshot screenshots/recording.png || true

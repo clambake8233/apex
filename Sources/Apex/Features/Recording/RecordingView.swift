@@ -54,41 +54,26 @@ public struct RecordingView: View {
     private var liveRouteCanvas: some View {
         GeometryReader { geo in
             ZStack {
-                // Deep radial map panel.
-                RadialGradient(
-                    colors: [Theme.Palette.surfaceRaised, Theme.Palette.canvasTop],
-                    center: .center, startRadius: 8, endRadius: geo.size.height * 0.8
-                )
-                RouteGrid().stroke(Color.white.opacity(0.035), lineWidth: 1)
-
                 if session.samples.count > 1 {
-                    // Fit the route into the UPPER region only, so the current-
-                    // position dot is never hidden behind the stats HUD/controls
-                    // that occupy the lower ~42% of the screen.
-                    let routeRect = CGRect(
-                        x: 0, y: geo.safeAreaInsets.top + 40,
-                        width: geo.size.width,
-                        height: geo.size.height * 0.52
-                    )
-                    let shape = RoutePath(samples: session.samples, padding: 44)
-                    ZStack {
-                        shape.stroke(liveColor.opacity(0.3),
-                                     style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
-                            .blur(radius: 6)
-                        shape.stroke(liveColor,
-                                     style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                        if let ends = shape.endpoints(in: CGRect(origin: .zero, size: routeRect.size)) {
-                            Circle().fill(Theme.Palette.success)
-                                .frame(width: 11, height: 11).position(ends.start)
-                            Circle().fill(liveColor)
-                                .frame(width: 16, height: 16).position(ends.end)
-                                .shadow(color: liveColor, radius: 8)
-                        }
-                    }
-                    .frame(width: routeRect.width, height: routeRect.height)
-                    .position(x: routeRect.midX, y: routeRect.midY)
+                    // Real dark MapKit map with the live route on top (streets/
+                    // context while riding). Camera fits the route into the upper
+                    // region so the current-position marker clears the HUD.
+                    LiveRouteMap(samples: session.samples, routeColor: liveColor)
+                        .overlay(
+                            // Subtle top-down darkening so the top bar + route
+                            // read cleanly over bright map areas.
+                            LinearGradient(
+                                colors: [Theme.Palette.canvasTop.opacity(0.5),
+                                         .clear,
+                                         Theme.Palette.canvasTop.opacity(0.35)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                            .allowsHitTesting(false)
+                        )
                 } else {
-                    // Pre-start / acquiring state.
+                    // Pre-start / acquiring state on the deep canvas.
+                    Theme.canvas
+                    RouteGrid().stroke(Color.white.opacity(0.035), lineWidth: 1)
                     VStack(spacing: Theme.Space.s3) {
                         Image(systemName: session.state == .idle ? "location.viewfinder" : "location.fill")
                             .font(.system(size: 40, weight: .semibold))
