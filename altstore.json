@@ -1,0 +1,43 @@
+{
+  "name": "Apex",
+  "subtitle": "The Apex riding companion",
+  "description": "Official source for Apex \u2014 a motorcycle riding companion.",
+  "iconURL": "https://raw.githubusercontent.com/clambake8233/apex/main/Resources/AppIcon.png",
+  "website": "https://github.com/clambake8233/apex",
+  "tintColor": "#FF6B2C",
+  "featuredApps": [
+    "com.apexrides.app"
+  ],
+  "apps": [
+    {
+      "name": "Apex",
+      "bundleIdentifier": "com.apexrides.app",
+      "developerName": "Apex",
+      "subtitle": "Record your rides. Keep every corner.",
+      "localizedDescription": "Apex is a motorcycle riding companion. Record your rides and get them back as beautiful keepsakes \u2014 route, distance, duration, and top speed for every ride you carve.\n\nTap \u201cTry Demo Mode\u201d on first launch to explore with sample rides before your first ride.",
+      "iconURL": "https://raw.githubusercontent.com/clambake8233/apex/main/Resources/AppIcon.png",
+      "tintColor": "#FF6B2C",
+      "category": "lifestyle",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "buildVersion": "1",
+          "date": "2026-07-15",
+          "localizedDescription": "First AltStore release: Ride Library + demo mode (tap Try Demo Mode to explore).",
+          "downloadURL": "https://github.com/clambake8233/apex/releases/download/v1.0.0/Apex.ipa",
+          "size": 866022,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSLocationWhenInUseUsageDescription": "Apex records your route while you ride.",
+          "NSLocationAlwaysAndWhenInUseUsageDescription": "Apex records your route while you ride, even with the screen off."
+        }
+      }
+    }
+  ],
+  "news": []
+}
