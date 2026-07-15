@@ -1,0 +1,96 @@
+name: iOS Screenshot
+
+# Tier 2 verification (see AGENTS.md §3 / docs/ARCHITECTURE.md §4): build Apex for
+# the iOS Simulator on a macOS runner, launch it, capture a PNG, upload as an
+# artifact. The agent downloads it and VIEWS the pixels — no human QA in the loop.
+#
+# Public repo => free macOS minutes.
+#
+# CI LESSONS (measured, do NOT relearn — see AGENTS.md):
+#   * Never boot a simulator concurrently with `brew install` — they contend,
+#     brew goes 22s -> 200s+. Boot serially, AFTER install+build.
+#   * Never cache the Homebrew cask — warm cache makes brew skip linking ->
+#     `xtool: command not found` (exit 127). Cold brew is ~11s; just run it.
+#   * Poll for a rendered frame (byte-size threshold) instead of a fixed sleep.
+#   * Simulator lifecycle is the dominant, high-variance cost (~150-280s). That
+#     is why the fast iteration path is the Tier-1 ImageRenderer harness.
+# [[TIMER]] lines keep every claim measured.
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshot:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      BUNDLE_ID: com.apexrides.app
+      DEVICE: iPhone 16 Pro
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No Homebrew cache (see header): cold brew is ~11s; caching breaks linking.
+      - name: Install xtool
+        run: |
+          set -euxo pipefail
+          t0=$(date +%s)
+          brew install xtool-org/tap/xtool || brew install --cask xtool-org/tap/xtool
+          xtool --version
+          t1=$(date +%s); echo "[[TIMER]] brew_install_xtool $((t1-t0))s"
+
+      - name: Build Apex for iOS Simulator
+        run: |
+          set -euxo pipefail
+          t0=$(date +%s)
+          xtool dev build --triple arm64-apple-ios-simulator
+          t1=$(date +%s); echo "[[TIMER]] xtool_build $((t1-t0))s"
+          APP_PATH="$(find . -type d -name '*.app' | head -1)"
+          test -n "$APP_PATH" || { echo "::error::no .app produced"; exit 1; }
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      # Boot the sim now (NOT earlier — concurrent boot starves brew). First
+      # simctl call absorbs CoreSimulator cold-start here.
+      - name: Boot simulator, install, launch, screenshot
+        run: |
+          set -euxo pipefail
+          mkdir -p screenshots
+
+          t0=$(date +%s)
+          UDID="$(xcrun simctl create apex-ci "$DEVICE")"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          t1=$(date +%s); echo "[[TIMER]] create_boot_wait $((t1-t0))s"
+
+          xcrun simctl install "$UDID" "$APP_PATH"
+          t2=$(date +%s); echo "[[TIMER]] install $((t2-t1))s"
+
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          t3=$(date +%s); echo "[[TIMER]] launch $((t3-t2))s"
+
+          # Poll for a rendered frame instead of a fixed sleep.
+          for i in 1 2 3 4 5 6; do
+            xcrun simctl io "$UDID" screenshot screenshots/ride-library.png || true
+            sz=$(stat -f%z screenshots/ride-library.png 2>/dev/null || echo 0)
+            echo "screenshot attempt $i: ${sz} bytes"
+            [ "$sz" -gt 100000 ] && break
+            sleep 2
+          done
+          t4=$(date +%s); echo "[[TIMER]] screenshot_poll $((t4-t3))s"
+          echo "[[TIMER]] sim_step_total $((t4-t0))s"
+          ls -la screenshots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-screenshots
+          path: screenshots/**
+          if-no-files-found: warn
+          retention-days: 7
