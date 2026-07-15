@@ -107,6 +107,21 @@ will regress the loop:
 4. Ask the bar question: *"Would this look out of place next to Transit?"* If yes,
    iterate. If you'd screenshot it and text it to a friend, it's done.
 
+### ⚠️ Vision review is coarse-only — MEASURE precise claims
+The vision pass is reliable for COARSE issues (colors distinct? glow smudgy? hard
+cutoff vs smooth fade? content clipped?). It is NOT reliable on sub-pixel
+symmetry, alignment, or spacing — it has hallucinated a "lopsided, right-arm-
+higher" brand mark and "off-center dot" on a mark that PIL measurement proved
+pixel-perfect (centroid at exact center, both arms ending at identical y). When a
+subjective vision review conflicts with deterministic geometry, MEASURE the PNG
+before "fixing" — load it with PIL, compute centroids/extents/positions. Chasing
+the model's wording risks breaking something already correct.
+```python
+from PIL import Image
+im = Image.open("out/ride-library-empty.png").convert("RGB"); W,H = im.size
+# scan for accent-colored / bright pixels, compute centroid x vs W/2, left/right extent
+```
+
 ---
 
 ## 4. Conventions
