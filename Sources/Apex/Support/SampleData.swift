@@ -82,17 +82,34 @@ public enum SampleData {
         let stepMeters = (spanKm * 1000) / Double(count)
         let metersPerDegLat = 111_320.0
 
-        var altitude = 300 + rng.nextUnit() * 400
-        let baseAltitude = altitude
-        // Net climb per step, but real roads UNDULATE — a pass still has dips.
-        // A GENTLE net trend plus a stronger correlated random walk (step noise
-        // dominates the trend) yields a believable profile with real peaks and
-        // dips, while still netting out to ~`climb` of positive gain. A slow sine
-        // adds a few long crests/valleys as an absolute offset on top.
-        let climbPerStep = climb / Double(count) * 0.55       // gentle net trend
-        let stepNoise = max(climb / Double(count) * 3.4, 10.0) // noise > trend → dips
-        var altVelocity = 0.0                                  // correlated (smooth) drift
-        var climbedAltitude = baseAltitude                     // trend + noise accumulator
+        // Altitude as ROLLING TERRAIN, not a ramp. Real roads rise and fall — a
+        // pass has valleys on the way up. We sum a few low-frequency sine "octaves"
+        // (big hills + finer relief) at jittered frequency/phase, over a modest net
+        // climb, so the elevation profile shows genuine peaks AND dips while still
+        // netting out to a believable positive gain. Deterministic per seed.
+        let baseAltitude = 300 + rng.nextUnit() * 400
+        let reliefAmp = climb * 0.5
+        let netClimb = climb * 0.5
+        struct Octave { let f: Double; let phase: Double; let amp: Double }
+        let octaves: [Octave] = [(1.1, 1.0), (2.2, 0.45), (3.6, 0.18)].map { base, amp in
+            Octave(f: base * (0.85 + rng.nextUnit() * 0.3),
+                   phase: rng.nextUnit() * 2 * .pi,
+                   amp: amp)
+        }
+        func rawAltitude(_ t: Double) -> Double {
+            let relief = octaves.reduce(0.0) { $0 + $1.amp * sin(t * .pi * 2 * $1.f + $1.phase) }
+            return baseAltitude + netClimb * t + reliefAmp * relief * 0.5
+        }
+        // Pre-compute + lightly smooth (kills tiny sawtooth, keeps the hills).
+        var rawAlts = (0..<count).map { rawAltitude(Double($0) / Double(count - 1)) }
+        if count >= 3 {
+            var smoothed = rawAlts
+            for i in 0..<count {
+                let lo = max(0, i - 1), hi = min(count - 1, i + 1)
+                smoothed[i] = (rawAlts[lo] + rawAlts[i] + rawAlts[hi]) / 3
+            }
+            rawAlts = smoothed
+        }
 
         for i in 0..<count {
             let t = Double(i) / Double(count)
@@ -114,12 +131,7 @@ public enum SampleData {
             if rng.nextUnit() < 0.045 { kmh = rng.nextUnit() * 3 }
             let speed = kmh / 3.6
 
-            // Altitude = gentle climbing trend + correlated random walk (noise >
-            // trend, so real dips) + a long crest/valley sine. Clamp above sea level.
-            altVelocity = altVelocity * 0.5 + (rng.nextUnit() - 0.5) * stepNoise
-            climbedAltitude += climbPerStep + altVelocity
-            let crest = sin(t * .pi * 2.5) * (climb * 0.18)
-            altitude = max(5, climbedAltitude + crest)
+            let altitude = max(5, rawAlts[i])
 
             let ts = start.addingTimeInterval(Double(i) / Double(count - 1) * Double(minutes) * 60)
             samples.append(RideSample(
