@@ -83,7 +83,16 @@ public enum SampleData {
         let metersPerDegLat = 111_320.0
 
         var altitude = 300 + rng.nextUnit() * 400
-        let climbPerStep = climb / Double(count) * 1.6   // net-positive-ish
+        let baseAltitude = altitude
+        // Net climb per step, but real roads UNDULATE — a pass still has dips.
+        // A GENTLE net trend plus a stronger correlated random walk (step noise
+        // dominates the trend) yields a believable profile with real peaks and
+        // dips, while still netting out to ~`climb` of positive gain. A slow sine
+        // adds a few long crests/valleys as an absolute offset on top.
+        let climbPerStep = climb / Double(count) * 0.55       // gentle net trend
+        let stepNoise = max(climb / Double(count) * 3.4, 10.0) // noise > trend → dips
+        var altVelocity = 0.0                                  // correlated (smooth) drift
+        var climbedAltitude = baseAltitude                     // trend + noise accumulator
 
         for i in 0..<count {
             let t = Double(i) / Double(count)
@@ -96,14 +105,21 @@ public enum SampleData {
             lat += dLat
             lon += dLon
 
-            // Speed profile: accelerate out, cruise, ease at the very end.
+            // Speed profile: accelerate out, cruise, ease at the very end, with a
+            // couple of realistic near-stops (junction/photo) so moving time < elapsed.
             let base = topKmh * (0.45 + 0.5 * sin(.pi * min(1, t * 1.05)))
             let jitter = (rng.nextUnit() - 0.5) * 14
-            let kmh = max(6, min(topKmh, base + jitter))
+            var kmh = max(6, min(topKmh, base + jitter))
+            // Occasional brief stop (~1 in 22 samples): speed drops to ~0.
+            if rng.nextUnit() < 0.045 { kmh = rng.nextUnit() * 3 }
             let speed = kmh / 3.6
 
-            // Altitude drifts up with noise (climbing a pass/canyon).
-            altitude += climbPerStep + (rng.nextUnit() - 0.5) * 6
+            // Altitude = gentle climbing trend + correlated random walk (noise >
+            // trend, so real dips) + a long crest/valley sine. Clamp above sea level.
+            altVelocity = altVelocity * 0.5 + (rng.nextUnit() - 0.5) * stepNoise
+            climbedAltitude += climbPerStep + altVelocity
+            let crest = sin(t * .pi * 2.5) * (climb * 0.18)
+            altitude = max(5, climbedAltitude + crest)
 
             let ts = start.addingTimeInterval(Double(i) / Double(count - 1) * Double(minutes) * 60)
             samples.append(RideSample(

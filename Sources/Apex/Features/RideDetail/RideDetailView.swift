@@ -104,7 +104,9 @@ public struct RideDetailView: View {
                 }
             }
             .padding(.horizontal, Theme.Space.screenInset)
-            .padding(.bottom, Theme.Space.s5)
+            // Lift above the Apple Maps/Legal attribution (bottom-left of the map,
+            // must stay visible per MapKit terms) so the hero content never covers it.
+            .padding(.bottom, Theme.Space.s8)
         }
         .frame(height: 420)
         .clipped()
