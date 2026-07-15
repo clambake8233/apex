@@ -91,7 +91,7 @@ public enum SampleData {
         let reliefAmp = climb * 0.5
         let netClimb = climb * 0.5
         struct Octave { let f: Double; let phase: Double; let amp: Double }
-        let octaves: [Octave] = [(1.1, 1.0), (2.2, 0.45), (3.6, 0.18)].map { base, amp in
+        let octaves: [Octave] = [(2.3, 1.0), (4.1, 0.5), (6.7, 0.22)].map { base, amp in
             Octave(f: base * (0.85 + rng.nextUnit() * 0.3),
                    phase: rng.nextUnit() * 2 * .pi,
                    amp: amp)
