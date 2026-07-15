@@ -251,17 +251,23 @@ private struct RiderMarker: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(color.opacity(0.25)).frame(width: 34, height: 34)
             if let heading {
+                // North-up / route modes: outer glow + directional chevron so the
+                // rider both stands out and shows travel direction.
+                Circle().fill(color.opacity(0.22)).frame(width: 40, height: 40)
+                Circle().fill(color.opacity(0.35)).frame(width: 26, height: 26)
                 Image(systemName: "location.north.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(color)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
                     .rotationEffect(.degrees(heading))
-                    .shadow(color: color, radius: 6)
+                    .shadow(color: color, radius: 7)
+                Circle().stroke(color, lineWidth: 2.5).frame(width: 40, height: 40)
             } else {
-                Circle().fill(color).frame(width: 16, height: 16)
-                    .overlay(Circle().stroke(.white, lineWidth: 2))
-                    .shadow(color: color, radius: 8)
+                // Heading-up: plain but bold dot (up == ahead already).
+                Circle().fill(color.opacity(0.22)).frame(width: 40, height: 40)
+                Circle().fill(color).frame(width: 18, height: 18)
+                    .overlay(Circle().stroke(.white, lineWidth: 2.5))
+                    .shadow(color: color, radius: 9)
             }
         }
     }
