@@ -124,11 +124,17 @@ public struct RideLibraryView: View {
 
     private var recordButton: some View {
         VStack(spacing: 0) {
+            // Tall, soft scrim so cards fade under the button intentionally
+            // (reads as a deliberate fade, not a hard clip).
             LinearGradient(
-                colors: [Theme.Palette.canvasBottom.opacity(0), Theme.Palette.canvasBottom],
+                colors: [
+                    Theme.Palette.canvasBottom.opacity(0),
+                    Theme.Palette.canvasBottom.opacity(0.7),
+                    Theme.Palette.canvasBottom,
+                ],
                 startPoint: .top, endPoint: .bottom
             )
-            .frame(height: 80)
+            .frame(height: 120)
             .allowsHitTesting(false)
 
             HStack(spacing: Theme.Space.s2) {
